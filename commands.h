@@ -10,10 +10,16 @@
 #include <sys/wait.h>
 #define MAX_LINE_SIZE 80
 #define MAX_ARG 20
-typedef enum { FALSE , TRUE } bool;
+
+/// <Global variables>
+char WD[MAX_LINE_SIZE] = "\0"; // working dir
+char HWD[MAX_LINE_SIZE] = "\0"; // history working dir
+/// </summary>
+typedef enum { FALSE , TRUE } Bool;
 int ExeComp(char* lineSize);
 int BgCmd(char* lineSize, void* jobs);
 int ExeCmd(void* jobs, char* lineSize, char* cmdString);
 void ExeExternal(char *args[MAX_ARG], char* cmdString);
+void get_wd(char* WD);
 #endif
 
