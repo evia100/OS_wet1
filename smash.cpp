@@ -14,9 +14,10 @@ main file. This file contains the main function of smash
 #define MAXARGS 20
 
 char* L_Fg_Cmd;
-void* jobs = NULL; //This represents the list of jobs. Please change to a preferred type (e.g array of char*)
+//void* jobs = NULL; //This represents the list of jobs. Please change to a preferred type (e.g array of char*)
 char lineSize[MAX_LINE_SIZE]; 
 
+smash DB; // smash data base
 
 //**************************************************************************************
 // function name: main
@@ -25,10 +26,8 @@ char lineSize[MAX_LINE_SIZE];
 int main(int argc, char *argv
 	[])
 {
-	get_wd(WD);
     char cmdString[MAX_LINE_SIZE]; 	   
 
-	
 	//signal declaretions
 	//NOTE: the signal handlers and the function/s that sets the handler should be found in siganls.c
 	 /* add your code here */
@@ -39,11 +38,13 @@ int main(int argc, char *argv
 	/* add your code here */
 
 	/************************************/
+	// smash init
+	DB.id=0;
+	DB.preivous_WD[0]='\0';
+	getcwd(DB.current_WD, MAX_LINE_SIZE);
 
 	/************************************/
 	// Init globals 
-
-
 	
 	L_Fg_Cmd =(char*)malloc(sizeof(char)*(MAX_LINE_SIZE+1));
 	if (L_Fg_Cmd == NULL) 
@@ -59,9 +60,9 @@ int main(int argc, char *argv
 					// perform a complicated Command
 		if(!ExeComp(lineSize)) continue; 
 					// background command	
-	 	if(!BgCmd(lineSize, jobs)) continue; 
+	 	if(!BgCmd(lineSize, DB)) continue; 
 					// built in commands
-		ExeCmd(jobs, lineSize, cmdString);
+		ExeCmd(DB, lineSize, cmdString);
 		
 		/* initialize for next line read*/
 		lineSize[0]='\0';

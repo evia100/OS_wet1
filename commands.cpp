@@ -4,24 +4,13 @@
 #include <iostream>
 #define ERROR -1
 
-
-
-void get_wd(char* WD)
-{
-	char temp_wd[MAX_LINE_SIZE];
-	if (NULL == getcwd(temp_wd, MAX_LINE_SIZE))
-	{
-		exit(-1);
-	}	
-	strcpy(WD, temp_wd);
-}
 //********************************************
 // function name: ExeCmd
 // Description: interperts and executes built-in commands
 // Parameters: pointer to jobs, command string
 // Returns: 0 - success,1 - failure
 //**************************************************************************************
-int ExeCmd(void* jobs, char* lineSize, char* cmdString)
+int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 {
 	char* cmd; 
 	char* args[MAX_ARG];
@@ -40,55 +29,67 @@ int ExeCmd(void* jobs, char* lineSize, char* cmdString)
 			num_arg++; 
  
 	}
+
+	if(strcmp(cmd,"history")) {
+		DB.commands_history.push_back(cmd);
+	}
+	
 /*************************************************/
 // Built in Commands PLEASE NOTE NOT ALL REQUIRED
 // ARE IN THIS CHAIN OF IF COMMANDS. PLEASE ADD
 // MORE IF STATEMENTS AS REQUIRED
 /*************************************************/
-	if (!strcmp(cmd, "cd") ) 
+	if (!strcmp(cmd, "cd") )  
 	{
-		if(args[1]!="-")
+		if(strcmp(args[1],"-")==0) //TODO : check if we need to print even if is empty.
 		{
-			char  temp[MAX_LINE_SIZE];
-			strcpy(temp, WD);
-			if (chdir(args[1]) == ERROR)
+			if(DB.preivous_WD[0]!='\0') // not empty
 			{
-				perror("No such file or directory");
+				cout << DB.preivous_WD << endl;
+				chdir(DB.preivous_WD);
+				DB.string_swap(DB.preivous_WD,DB.current_WD);
 			}
-			else
+		}
+		else // args[1]!="-"
+		{
+			if(chdir(args[1])==ERROR)
 			{
-				strcpy(WD, args[1]);
-				strcpy(HWD, temp);
+				cout <<"smash error:> No such file or directory" << endl;
+				return -1;
 			}
-			
+			strcpy(DB.preivous_WD,DB.current_WD);
+			getcwd(DB.current_WD,MAX_LINE_SIZE);
 			
 		}
-		else
-		{
-			char temp[MAX_LINE_SIZE];
-			std::cout << HWD << std::endl;
-			strcpy(temp, WD);
-			strcpy(WD, HWD);
-			strcpy(HWD, temp);
-			chdir(WD);
-			
-		}
+		
 	} 
 	
 	/*************************************************/
 	else if (!strcmp(cmd, "pwd")) 
 	{
-		if (NULL == getcwd(pwd, MAX_LINE_SIZE))
-		{
-			perror("can't get current dir");
-			return -1;
+		if(num_arg!=0) {
+		 illegal_cmd = TRUE;
 		}
 		else
 		{
-			std::cout << pwd << std::endl;
+				getcwd(DB.current_WD,MAX_LINE_SIZE);
+				
+				std::cout << DB.current_WD << std::endl;
+
 		}
 	}
 	
+	/*************************************************/
+	else if (!strcmp(cmd, "history"))
+	{	
+		cout<< DB.commands_history[0] << endl;
+
+		cout<< DB.commands_history[1] << endl;
+
+		cout<< DB.commands_history[2] << endl;
+		
+	} 
+
 	/*************************************************/
 	else if (!strcmp(cmd, "mkdir"))
 	{
@@ -196,21 +197,56 @@ int ExeComp(char* lineSize)
 // Parameters: command string, pointer to jobs
 // Returns: 0- BG command -1- if not
 //**************************************************************************************
-int BgCmd(char* lineSize, void* jobs)
+int BgCmd(char* lineSize, smash& DB)
 {
 
-	char* Command;
+	char* cmd;
 	char* delimiters = " \t\n";
 	char *args[MAX_ARG];
+ 	cmd = strtok(lineSize, delimiters);
+	if (cmd == NULL)
+		return 0; 
+   	args[0] = cmd;
+	int num_arg=0;
+	for (int i=1; i<MAX_ARG; i++)
+	{
+		args[i] = strtok(NULL, delimiters); 
+		if (args[i] != NULL) 
+			num_arg++; 
+ 
+	}
+	//////////// needs to add input test ///////////////
+	int pid;
 	if (lineSize[strlen(lineSize)-2] == '&')
 	{
 		lineSize[strlen(lineSize)-2] = '\0';
-		// Add your code here (execute a in the background)
-					
-		/* 
-		your code
-		*/
-		
+			// (execute a in the background)
+		pid=fork();
+		switch(pid)
+		{
+			case 0: // child
+			{
+				setpgrp();
+				if(execvp(args[0],args)==ERROR)
+				{
+					perror("ERROR");
+					exit(-1);
+				}
+				break;
+			}
+			case -1: // fork failed
+			{
+				perror("fork failed");
+				break;
+			}
+			default: // continue 
+			{
+				string cmd(args[0]);
+				job new_job(cmd,pid,++DB.id);
+				DB.jobs.push_back(new_job);
+				return 0;
+			}
+		}	
 	}
 	return -1;
 }
