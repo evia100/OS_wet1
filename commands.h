@@ -14,6 +14,7 @@
 #include <iostream>
 #include <vector>
 #include <errno.h>
+#include <fstream>
 
 using namespace std;
 
@@ -52,11 +53,6 @@ class smash {
         strcpy(str2 ,temp);
     }
 
-    queue<char*> test;
-    void q_insert()
-    {
-        test.push(current_WD);
-    }
 
     std::vector <char*> commands_history;
     void queue_insert(char* command) 
@@ -71,11 +67,11 @@ class smash {
 
     void queue_print()
     {
-        int i=0;
-        while(!commands_history.empty())
+
+        vector<char*>::iterator it;
+        for (it = commands_history.begin();it!=commands_history.end();it++)
         {
-            i++;
-            cout<< commands_history[i] << endl;
+         cout << *it << endl;
         }
     }
 

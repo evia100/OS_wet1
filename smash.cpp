@@ -50,20 +50,27 @@ int main(int argc, char *argv
 	if (L_Fg_Cmd == NULL) 
 			exit (-1); 
 	L_Fg_Cmd[0] = '\0';
-	
-    	while (1)
-    	{
+
+	while (1)
+	{
 	 	printf("smash > ");
 		fgets(lineSize, MAX_LINE_SIZE, stdin);
 		strcpy(cmdString, lineSize);    	
 		cmdString[strlen(lineSize)-1]='\0';
-					// perform a complicated Command
-		if(!ExeComp(lineSize)) continue; 
+
+		if (!ExeComp(lineSize)) continue;
 					// background command	
 	 	if(!BgCmd(lineSize, DB)) continue; 
 					// built in commands
 		ExeCmd(DB, lineSize, cmdString);
-		
+
+				//add to history
+	//	cout << "line size is: " << lineSize << endl;
+		if (strcmp(lineSize, "history")) {
+			DB.commands_history.push_back(lineSize);
+		//	cout <<"inserted : " << DB.commands_history.front() << endl;
+		}
+
 		/* initialize for next line read*/
 		lineSize[0]='\0';
 		cmdString[0]='\0';
