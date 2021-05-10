@@ -46,6 +46,9 @@ class smash {
 
     char preivous_WD[MAX_LINE_SIZE];
     char current_WD[MAX_LINE_SIZE];
+    int id;
+    int PGID; // process group id
+    char curr_cmd[MAX_LINE_SIZE];
 
     void string_swap(char* str1,char* str2)
     {
@@ -116,8 +119,6 @@ class smash {
         }
     }
 
-    int id;
-    int PGID; // process group id
 };
 
 

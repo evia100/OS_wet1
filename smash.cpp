@@ -21,11 +21,39 @@ smash DB; // smash data base
 
 void catch_int_c(int signum)
 {
-	signal_handler(signum);
+	if(DB.PGID!=-1)
+	{
+		if(kill(DB.PGID,SIGINT)==ERROR)
+		{
+			perror("couldn't send int signal");
+		}
+		else
+		{
+			cout <<endl;
+			cout<<"signal SIGINT was sent to "<<DB.PGID << endl;
+			DB.PGID = -1;
+		}
+	}
 }
 
 void catch_int_z(int sig_num)
 {
+	if(DB.PGID!=-1)
+	{
+		if(kill(DB.PGID,SIGTSTP)==ERROR)
+		{
+			perror("couldn't send STOP signal");
+		}
+		else
+		{
+			cout <<endl;
+			cout<<"signal SIGSTP was sent to "<<DB.PGID << endl;
+			job new_job(DB.curr_cmd,DB.PGID,++DB.id);
+			new_job.curr_state=stopped;
+			DB.jobs.push_back(new_job);
+			DB.PGID = -1;
+		}
+	}
 }
 
 //**************************************************************************************
@@ -56,13 +84,14 @@ int main(int argc, char *argv
 	/************************************/
 	// catch ctrl-c & ctrl-z
 
+
 	struct sigaction ctrl_c;
 	ctrl_c.sa_handler=&catch_int_c;
 	sigaction(SIGINT,&ctrl_c,NULL);
 
 	struct sigaction ctrl_z;
 	ctrl_c.sa_handler=&catch_int_z;
-	sigaction(SIGSTOP,&ctrl_z,NULL);
+	sigaction(SIGTSTP,&ctrl_z,NULL);
 	
 	L_Fg_Cmd =(char*)malloc(sizeof(char)*(MAX_LINE_SIZE+1));
 	if (L_Fg_Cmd == NULL) 
@@ -76,12 +105,11 @@ int main(int argc, char *argv
 		strcpy(cmdString, lineSize);    	
 		cmdString[strlen(lineSize)-1]='\0';
 
-		if (!ExeComp(lineSize)) continue;
-					// background command	
 	 	if(!BgCmd(lineSize, DB)) continue; 
 					// built in commands
 		ExeCmd(DB, lineSize, cmdString);
 
+		strcpy(DB.curr_cmd,cmdString);
 				//add to history
 	//	cout << "line size is: " << lineSize << endl;
 		if (strcmp(lineSize, "history")) {

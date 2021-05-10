@@ -237,7 +237,53 @@ int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 	/*************************************************/
 	else if (!strcmp(cmd, "quit"))
 	{
+		if (num_arg > 1)
+			illegal_cmd = true;
+		else if(num_arg==0)
+		{
+			int pid = getpid();
+			if(kill(pid,SIGKILL)==ERROR) {
+				perror("couldn't kill smash");
+			}
+		}
+		else if(num_arg==1) 
+		{
+			DB.delete_dead_jobs();
+			// running over the jobs
+			list<job>::iterator it;
+			for (it=DB.jobs.begin();it!=DB.jobs.end();it++)
+			{
+				bool died = true;
+				time_t start_time=time(0);
+				if(kill(it->pid,SIGTERM)==ERROR) {
+					perror("couldnt terminate job");
+				}
+				
+				while(!kill(it->pid,0)) // job still exists
+				{
+					waitpid(-1,NULL,WNOHANG);
+					int curr_time = (int)time(0);
+					if((curr_time-(int)start_time) > 5) // job didnt die
+					{
+						died = false;
+						if(kill(it->pid,SIGKILL)==ERROR) {
+							perror("couldnt kill job");
+						}
+					}
+				}
+				if(died) {
+					cout<< it->command <<" - Sending SIGTERM... Done." <<endl;
+				}
+				else {
+					cout<< it->command <<" - Sending SIGTERM… (5 sec passed) Sending SIGKILL… Done." <<endl;
+				}
+			}
+			int pid = getpid();
+			if(kill(pid,SIGKILL)==ERROR) {
+				perror("couldn't kill smash");
+			}
 
+		}
 	}
 
 	/*************************************************/
@@ -337,7 +383,7 @@ int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 	/*************************************************/
 	else // external command
 	{
-		ExeExternal(args, cmdString);
+		ExeExternal(args, DB);
 		return 0;
 	}
 
