@@ -19,6 +19,15 @@ char lineSize[MAX_LINE_SIZE];
 
 smash DB; // smash data base
 
+void catch_int_c(int signum)
+{
+	signal_handler(signum);
+}
+
+void catch_int_z(int sig_num)
+{
+}
+
 //**************************************************************************************
 // function name: main
 // Description: main function of smash. get command from user and calls command functions
@@ -40,11 +49,20 @@ int main(int argc, char *argv
 	/************************************/
 	// smash init
 	DB.id=0;
+	DB.PGID=-1;
 	DB.preivous_WD[0]='\0';
 	getcwd(DB.current_WD, MAX_LINE_SIZE);
 
 	/************************************/
-	// Init globals 
+	// catch ctrl-c & ctrl-z
+
+	struct sigaction ctrl_c;
+	ctrl_c.sa_handler=&catch_int_c;
+	sigaction(SIGINT,&ctrl_c,NULL);
+
+	struct sigaction ctrl_z;
+	ctrl_c.sa_handler=&catch_int_z;
+	sigaction(SIGSTOP,&ctrl_z,NULL);
 	
 	L_Fg_Cmd =(char*)malloc(sizeof(char)*(MAX_LINE_SIZE+1));
 	if (L_Fg_Cmd == NULL) 

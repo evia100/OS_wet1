@@ -2,16 +2,26 @@
 //********************************************
 #include "commands.h"
 #include <iostream>
-#define ERROR -1
+
+
+
+//********************************************
+// function name: signal_handler
+// Description: interperts and executes built-in commands
+// Parameters: pointer to jobs, command string
+// Returns: 0 - success,1 - failure
+//*************************************************************************************
 
 //********************************************
 // function name: ExeCmd
 // Description: interperts and executes built-in commands
 // Parameters: pointer to jobs, command string
 // Returns: 0 - success,1 - failure
-//**************************************************************************************
+//*************************************************************************************
+
 int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 {
+	DB.delete_dead_jobs();
 	char* cmd;
 	char* args[MAX_ARG];
 	char pwd[MAX_LINE_SIZE];
@@ -107,10 +117,31 @@ int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 	/*************************************************/
 	else if (!strcmp(cmd, "kill"))
 	{
-		if (num_arg != 2)
+		if (num_arg != 2 || args[1][0] != '-' )/* args[2])*/
 			illegal_cmd = true;
 		else
 		{
+			int job_id = atoi(args[2]);
+			int signum = atoi(args[1]+1);
+			list<job>::iterator it = DB.search_job(job_id);
+			if(it==DB.jobs.end()) {
+				cout <<"smash error: > kill " << job_id <<" – job does not exist" <<endl;
+				return ERROR;
+			}
+			if(kill(it->pid,signum)==ERROR)
+			{
+				cout <<"smash error: > kill " << job_id <<" – cannot send signal" <<endl;
+			}
+
+			if(signum==SIGSTOP || signum==SIGTSTP)
+			{
+				it->curr_state=stopped; /////////////////////////// WHAT ABOUT THE TIME
+			}
+			else if (signum==SIGCONT)
+			{
+				it->curr_state=running; /////////////////////////// WHAT ABOUT THE TIME
+
+			}
 
 		}
 	}
@@ -134,13 +165,73 @@ int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 	/*************************************************/
 	else if (!strcmp(cmd, "fg"))
 	{
+		if (num_arg >1)
+			illegal_cmd = true;
+		else
+		{
+			list<job>::iterator it;
+			int job_id;
+			if(num_arg==1)
+				job_id=atoi(args[1]);
+			else if(num_arg==0)
+				job_id = DB.jobs.back().id;
+			
+			it=DB.search_job(job_id);
+			if(it==DB.jobs.end())
+			{
+			cout <<"smash error: > no such job" <<endl;
+			return ERROR;
+			}
+			if(it->curr_state==stopped)
+			{
+				int res = kill(it->pid,SIGCONT);
+				if(res==ERROR) {
+					cout <<"smash error: > can't get this job running" << endl;
+				}
+				else {
+					it->curr_state = running;
+				}
+			}
 
+			DB.PGID = it->pid;
+		 	waitpid(it->pid,NULL,WUNTRACED);
+			DB.PGID=-1;
+		}
 	}
 
 	/*************************************************/
 	else if (!strcmp(cmd, "bg"))
 	{
+		if (num_arg >1)
+			illegal_cmd = true;
+		else
+		{
+			list<job>::iterator it;
+			int job_id;
+			if(num_arg==1)
+				job_id=atoi(args[1]);
+			else if(num_arg==0)
+				job_id = DB.jobs.back().id;
+			
+			it=DB.search_job(job_id);
+			if(it==DB.jobs.end() || it->curr_state==running)
+			{
+			cout <<"smash error: > no such job or active job" <<endl;
+			return ERROR;
+			}
 
+			if(it->curr_state==stopped)
+			{
+				int res = kill(it->pid,SIGCONT);
+				if(res==ERROR) {
+					cout <<"smash error: > can't get this job running" << endl;
+				}
+				else {
+					cout << job_id << endl;
+					it->curr_state = running;
+				}
+			}
+		}
 	}
 
 	/*************************************************/
@@ -196,7 +287,49 @@ int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 			illegal_cmd = true;
 		else
 		{
+			FILE* File1, * File2;
+			File1 = fopen(args[1], "r");
+			File2 = fopen(args[2], "r");
 
+			if (File1 == NULL || File2 == NULL) {
+				perror("Could not open one of the files");
+			}
+			else
+			{
+				fseek(File1, 0, SEEK_END);
+				long lsize1 = ftell(File1);
+				rewind(File1);
+
+				fseek(File2, 0, SEEK_END);
+				long lsize2 = ftell(File2);
+				rewind(File2);
+
+				char* data1 = (char*)malloc(sizeof(char) * (lsize1 + 1));
+				char* data2 = (char*)malloc(sizeof(char) * (lsize2 + 1));
+
+				if (data1 == NULL || data2 == NULL)
+				{
+					perror("Could not allocate memory");
+				}
+
+				data1[lsize1] = '\0';
+				data1[lsize2] = '\0';
+
+				if (fread(data1, 1, lsize1, File1) != lsize1 || fread(data2, 1, lsize2, File2) != lsize2)
+				{
+					perror("error reading file");
+				}
+				if (strcmp(data1, data2))
+					printf("1 \n");
+				else
+					printf("0 \n");
+
+				free(data1);
+				free(data2);
+			}
+			fclose(File1);
+			fclose(File2);
+		
 		}
 
 	}
@@ -204,7 +337,7 @@ int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 	/*************************************************/
 	else // external command
 	{
-		//ExeExternal(args, cmdString);
+		ExeExternal(args, cmdString);
 		return 0;
 	}
 
@@ -221,45 +354,38 @@ int ExeCmd(smash& DB, char* lineSize, char* cmdString)
 // Parameters: external command arguments, external command string
 // Returns: void
 //**************************************************************************************
-/*
-void ExeExternal(char *args[MAX_ARG], char* cmdString)
+
+void ExeExternal(char *args[MAX_ARG], smash& DB)
 {
 	int pID;
-		switch(pID = fork())
+	pID = fork();
+	switch(pID)
 	{
-			case -1:
-					// Add your code here (error)
+		case ERROR:
+		{
+			perror("fork failed");
+			break;
+		}
+		case 0 :
+		{	// Child Process
+			setpgrp();
+			if(execvp(args[0],args)==ERROR) // failed
+			{
+				perror("can not run this command");
+			}
+			break;
+		}
+		default:
+		{	
+			DB.PGID = pID;
+			waitpid(pID,NULL,WUNTRACED);
+			DB.PGID=-1;
+			break;
+		}		
+	}
+}
 
-					/*
-					your code
-					*/
-					//	case 0 :
-								// Child Process
-					  //     		setpgrp();
 
-								// Add your code here (execute an external command)
-
-								/*
-								your code
-								*/
-
-								//	default:
-											// Add your code here
-
-											/*
-											your code
-											*/
-											//	}
-											//}
-
-											//**************************************************************************************
-											// function name: ExeComp
-											// Description: executes complicated command
-											// Parameters: command string
-											// Returns: 0- if complicated -1- if not
-											//**************************************************************************************
-//	}
-//}
 //NOT NEEDED
 int ExeComp(char* lineSize)
 {
@@ -308,28 +434,28 @@ int BgCmd(char* lineSize, smash& DB)
 		pid = fork();
 		switch (pid)
 		{
-		case 0: // child
-		{
-			setpgrp();
-			if (execvp(args[0], args) == ERROR)
+			case 0: // child
 			{
-				perror("ERROR");
-				exit(-1);
+				setpgrp();
+				if (execvp(args[0], args) == ERROR)
+				{
+					perror("ERROR");
+					exit(-1);
+				}
+				break;
 			}
-			break;
-		}
-		case -1: // fork failed
-		{
-			perror("fork failed");
-			break;
-		}
-		default: // continue 
-		{
-			string cmd(args[0]);
-			job new_job(cmd, pid, ++DB.id);
-			DB.jobs.push_back(new_job);
-			return 0;
-		}
+			case ERROR: // fork failed
+			{
+				perror("fork failed");
+				break;
+			}
+			default: // continue 
+			{
+				string cmd(args[0]);
+				job new_job(cmd, pid, ++DB.id);
+				DB.jobs.push_back(new_job);
+				return 0;
+			}
 		}
 	}
 	return -1;

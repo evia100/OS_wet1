@@ -21,6 +21,8 @@ using namespace std;
 #define MAX_LINE_SIZE 80
 #define MAX_ARG 20
 #define HISTORY_SIZE 50
+#define ERROR -1
+
 
 enum State {running=0,stopped};
 
@@ -90,6 +92,21 @@ class smash {
             }
         }
     }
+
+
+    list<job>::iterator search_job(int job_id)
+    {
+        list<job>::iterator it;
+        for (it=jobs.begin();it!=jobs.end();it++)
+        {
+            if(it->id == job_id)
+            {
+                return it;
+            }
+        }
+        return jobs.end();
+    }
+
     void print_jobs()
     {
         list<job>::iterator it;
@@ -100,6 +117,7 @@ class smash {
     }
 
     int id;
+    int PGID; // process group id
 };
 
 
@@ -108,7 +126,7 @@ typedef enum { FALSE , TRUE } Bool;
 int ExeComp(char* lineSize);
 int BgCmd(char* lineSize, smash& DB);
 int ExeCmd(smash& DB, char* lineSize, char* cmdString);
-void ExeExternal(char *args[MAX_ARG], char* cmdString);
+void ExeExternal(char *args[MAX_ARG], smash& DB);
 
 #endif
 
